@@ -1,0 +1,30 @@
+; classic Lisp let, usage: (let v-name val v-name-2 val-2 body)
+(macro let (lambda ()
+ (var args (Array.prototype.slice.call arguments 0))
+ (var body (args.pop))
+ (var symbols (args.filter (lambda (_ idx) (return (=== (% idx 2) 0)))))
+ (var bindings (args.filter (lambda (_ idx) (return (!== (% idx 2) 0)))))
+ (return `((lambda (,@symbols) (,@body)) ,@bindings))))
+
+; variadic lambda, usage: (vlambda v-name v-name2 v-name3 rest body)
+; slices the rest arguments into the rest array
+(macro vlambda (lambda ()
+ (var args (Array.prototype.slice.call arguments 0))
+ (var body (args.pop))
+ (var variadic (=== (. (get args (- args.length 1)) atom) "rest"))
+ (if variadic (args.pop))
+ (var args-len args.length)
+ (if variadic 
+  (return `(lambda (,@args)
+    (block
+     (var rest (Array.prototype.slice.call arguments ,args-len))
+     (,@body))))
+  (return `(lambda (,@args)
+    (,@body))))))
+
+; ternary if as a first-class expression
+(macro ? (lambda (predicate left right)
+ (return `(?:
+  ,predicate
+  ((lambda () (,@left)))
+  ((lambda () (,@right)))))))
