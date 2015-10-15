@@ -6,5 +6,5 @@ Current macros:
 * let, the classic Lisp let for JS
 * vlambda, variadic lambdas
 * ?, ternary if as full-fledged expressions
-* guard, guards against undefined error (it's up to you to decide whether it's a good idea or not)
-* buld, build a path in an object
+* guard guards against undefined error (it's up to you to decide whether it's a good idea or not)
+* build builds a path in an object
