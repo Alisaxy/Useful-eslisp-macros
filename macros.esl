@@ -28,3 +28,54 @@
   ,predicate
   ((lambda () (,@left)))
   ((lambda () (,@right)))))))
+
+; a guard against undefined errors (depends if a good idea or not)
+; ideally should use a frozen object or a fresh object as default, otherwise undefined behaviour is entirely possible
+; usage example:
+; (function create-identity () (block
+;  (var identity (lambda ()))
+;  (Object.freeze identity)
+;  (return identity)))
+; (var identity (create-identity))
+; (= (guard identity test a b c d e f) 777)
+; guards against undefined for the test.a.b.c.d.e.f path
+; Warning: it does not create a new path, for that use the build macro instead!
+(macro guard (lambda ()
+ (var args (Array.prototype.slice.call arguments 0))
+ (var deflt (get args 0))
+ (var current (get args 1))
+ (for (var i 2) (< i args.length) (++ i)
+  (= current
+   (array (object atom ".")
+   (array (object atom "||") current deflt)
+   (get args i))))
+ (return current)))
+
+; object path builder
+; usage (should receive a defined unfrozen object):
+; (var item (object))
+; (= (. (build (object) item a b c d) e) 777)
+; builds an object path of item.a.b.c.d with value of 777
+(macro build (lambda ()
+ (var args (Array.prototype.slice.call arguments 0))
+ (var factory (get args 0))
+ (var item (get args 1))
+ (var current)
+ (var result item)
+ (for (var i 2) (< i args.length) (++ i)
+  (block
+   (= current (get args i))
+   (= result
+    (array
+     (object atom "=")
+     (array
+      (object atom ".")
+       result
+       current)
+      (array
+       (object atom "||")
+       (array (object atom ".")
+        item
+        current)
+       factory)))))
+ (return result)))
