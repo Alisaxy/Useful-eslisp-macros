@@ -54,20 +54,25 @@
 ; object path builder
 ; usage (should receive a defined unfrozen object):
 ; (var item (object))
-; (= (. (build (object) item a b c d) e) 777)
-; builds an object path of item.a.b.c.d with value of 777
-(macro build (lambda ()
+; (build (object) item a b c d r 777)
+; (build (object) item a b c d e f g h 777)
+; (build (object) item a b d f k f g h 777)
+; (macro build (lambda ()
  (var args (Array.prototype.slice.call arguments 0))
  (var factory (get args 0))
  (var item (get args 1))
  (var current)
  (var result item)
+ (var buffer (this.gensym))
+ (var assignment (args.pop))
+ (var destination (args.pop))
  (for (var i 2) (< i args.length) (++ i)
   (block
    (= current (get args i))
    (= result
     (array
      (object atom "=")
+     buffer
      (array
       (object atom ".")
        result
@@ -75,7 +80,9 @@
       (array
        (object atom "||")
        (array (object atom ".")
-        item
+        buffer
         current)
        factory)))))
- (return result)))
+ (return `((lambda () (block
+  (var ,buffer ,item)
+  (= (. ,result ,destination) ,assignment)))))))
