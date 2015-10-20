@@ -51,6 +51,19 @@
    (get args i))))
  (return current)))
 
+; guards for object members
+; usage (var x (dotguard a b c d e f))
+(macro dotguard (lambda ()
+ (var args (Array.prototype.slice.call arguments 0))
+ (var chain (array (object atom ".")))
+ (var result (array (object atom "&&")))
+ (for (var i 1) (< i args.length) (++ i)
+  (block
+   (= current (get args i))
+   (chain.push current)
+   (result.push (chain.slice))))
+ (return result)))
+
 ; object path builder
 ; usage (should receive a defined unfrozen object):
 ; (var item (object))
