@@ -42,9 +42,9 @@
 ; Warning: it does not create a new path, for that use the build macro instead!
 (macro guard (lambda ()
  (var args (Array.prototype.slice.call arguments 0))
- (var deflt (get args 0))
- (var current (get args 1))
- (for (var i 2) (< i args.length) (++ i)
+ (var deflt (args.shift))
+ (var current (args.shift))
+ (for (var i 0) (< i args.length) (++ i)
   (= current
    (array (object atom ".")
    (array (object atom "||") current deflt)
@@ -57,7 +57,7 @@
  (var args (Array.prototype.slice.call arguments 0))
  (var chain (array (object atom ".")))
  (var result (array (object atom "&&")))
- (for (var i 1) (< i args.length) (++ i)
+ (for (var i 0) (< i args.length) (++ i)
   (block
    (= current (get args i))
    (chain.push current)
@@ -70,32 +70,19 @@
 ; (build (object) item a b c d r 777)
 ; (build (object) item a b c d e f g h 777)
 ; (build (object) item a b d f k f g h 777)
-; (macro build (lambda ()
+(macro build (lambda ()
  (var args (Array.prototype.slice.call arguments 0))
- (var factory (get args 0))
- (var item (get args 1))
- (var current)
- (var result item)
- (var buffer (this.gensym))
+ (var factory (args.shift))
  (var assignment (args.pop))
- (var destination (args.pop))
- (for (var i 2) (< i args.length) (++ i)
+ (var chain (array (object atom ".")))
+ (var result (array (object atom "&&")))
+ (for (var i 0) (< i args.length) (++ i)
   (block
    (= current (get args i))
-   (= result
-    (array
-     (object atom "=")
-     buffer
-     (array
-      (object atom ".")
-       result
-       current)
-      (array
-       (object atom "||")
-       (array (object atom ".")
-        buffer
-        current)
-       factory)))))
- (return `((lambda () (block
-  (var ,buffer ,item)
-  (= (. ,result ,destination) ,assignment)))))))
+   (chain.push current)
+   (result.push
+    (array (object atom "=")
+    (chain.slice)
+    (array (object atom "||")
+     (chain.slice) (?: (=== i (- args.length 1)) assignment factory))))))
+ (return result)))
