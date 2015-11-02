@@ -6,21 +6,31 @@
  (var bindings (args.filter (lambda (_ idx) (return (!== (% idx 2) 0)))))
  (return `((lambda (,@symbols) (,@body)) ,@bindings))))
 
-; variadic lambda, usage: (vlambda v-name v-name2 v-name3 rest body)
+; variadic lambda, usage: (vlambda test (x (y 10) z (i 999)) (console.log x y z i rest))
+; supports default arguments
 ; slices the rest arguments into the rest array
-(macro vlambda (lambda ()
- (var args (Array.prototype.slice.call arguments 0))
- (var body (args.pop))
- (var variadic (=== (. (get args (- args.length 1)) atom) "rest"))
- (if variadic (args.pop))
- (var args-len args.length)
- (if variadic 
-  (return `(lambda (,@args)
+: WARNING: this macro has an explicit name parameter, good for debugging
+(macro vlambda (lambda (name params)
+  (var args (Array.prototype.slice.call arguments 2))
+  (var body (args.pop))
+  (var params-len params.length)
+  (var default-params (array))
+  (= params (params.map (lambda (param)
+    (if (=== param.constructor Array)
+      (block (default-params.push param) (return (get param 0)))
+      (return param)))))
+  (= default-params (default-params.map (lambda (param) (return
+    (array (object atom "=") (get param 0) 
+      (array (object atom "?:") 
+        (array (object atom "||") 
+          (array (object atom "===") (get param 0) (object atom "undefined"))
+          (array (object atom "===") (get param 0) (object atom "null")))
+        (get param 1) (get param 0)))))))
+  (return `(lambda ,name (,@params)
     (block
-     (var rest (Array.prototype.slice.call arguments ,args-len))
-     (,@body))))
-  (return `(lambda (,@args)
-    (,@body))))))
+      ,@default-params
+      (var rest (Array.prototype.slice.call arguments ,params-len))
+      (,@body))))))
 
 ; ternary if as a first-class expression
 (macro ? (lambda (predicate left right)
