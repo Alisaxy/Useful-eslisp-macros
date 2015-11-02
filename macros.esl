@@ -9,7 +9,7 @@
 ; variadic lambda, usage: (vlambda test (x (y 10) z (i 999)) (console.log x y z i rest))
 ; supports default arguments
 ; slices the rest arguments into the rest array
-: WARNING: this macro has an explicit name parameter, good for debugging
+; WARNING: this macro has an explicit name parameter, good for debugging
 (macro vlambda (lambda (name params)
   (var args (Array.prototype.slice.call arguments 2))
   (var body (args.pop))
