@@ -38,6 +38,19 @@
   ,predicate
   ((lambda () (,@left)))
   ((lambda () (,@right)))))))
+  
+; chain methods just like in JS!
+; usage: (chain (Lazy (array 1 2 3 4 5 6 7)) (filter (lambda (x) (return (=== (% x 2) 0)))) (map (lambda (x) (return (* x 3)))) (reduce (lambda (x y) (return (+ x y)))))
+(macro chain (lambda ()
+  (var args (Array.prototype.slice.call arguments 0))
+  (var chained (array (args.shift)))
+  (args.forEach (lambda (arg)
+    (chained.unshift (object atom "."))
+    (chained.push (arg.shift))
+    (var params (array chained))
+    (= params (params.concat arg))
+    (= chained (array params))))
+  (return (chained.pop))))
 
 ; a guard against undefined errors (depends if a good idea or not)
 ; ideally should use a frozen object or a fresh object as default, otherwise undefined behaviour is entirely possible
