@@ -6,6 +6,7 @@ Works for as of now the latest version of elisp which is: 0.7.x
 Current macros:
 * vlambda, variadic lambdas
 * chain, chain methods just like in JS!
+* make-lookup, make a lookup table from a list of keys
 * ?, ternary if as full-fledged expressions
 
 ####Note:
