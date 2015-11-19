@@ -1,116 +1,82 @@
-; classic Lisp let, usage: (let v-name val v-name-2 val-2 body)
-(macro let (lambda ()
- (var args (Array.prototype.slice.call arguments 0))
- (var body (args.pop))
- (var symbols (args.filter (lambda (_ idx) (return (=== (% idx 2) 0)))))
- (var bindings (args.filter (lambda (_ idx) (return (!== (% idx 2) 0)))))
- (return `((lambda (,@symbols) (,@body)) ,@bindings))))
-
-; variadic lambda, usage: (vlambda test (x (y 10) z (i 999)) (console.log x y z i rest))
-; supports default arguments
-; slices the rest arguments into the rest array
-; WARNING: this macro has an explicit name parameter, good for debugging
-(macro vlambda (lambda (name params)
-  (var args (Array.prototype.slice.call arguments 2))
-  (var body (args.pop))
-  (var params-len params.length)
-  (var default-params (array))
-  (= params (params.map (lambda (param)
-    (if (=== param.constructor Array)
-      (block (default-params.push param) (return (get param 0)))
-      (return param)))))
-  (= default-params (default-params.map (lambda (param) (return
-    (array (object atom "=") (get param 0) 
-      (array (object atom "?:") 
-        (array (object atom "||") 
-          (array (object atom "===") (get param 0) (object atom "undefined"))
-          (array (object atom "===") (get param 0) (object atom "null")))
-        (get param 1) (get param 0)))))))
-  (return `(lambda ,name (,@params)
-    (block
-      ,@default-params
-      (var rest (Array.prototype.slice.call arguments ,params-len))
-      (,@body))))))
-
-; ternary if as a first-class expression
 (macro ? (lambda (predicate left right)
  (return `(?:
   ,predicate
   ((lambda () (,@left)))
   ((lambda () (,@right)))))))
-  
+
+; variadic lambda, usage: (vlambda test (x (y 10) z (i 999)) (console.log x y z i rest))
+; supports default arguments
+; slices the rest arguments into the rest array
+; WARNING: this macro has an explicit name parameter, good for debugging
+; BREAKING CHANGE: now with an implicit return for the last statement
+(macro vlambda (lambda (name params)
+  (function default-template (symbol value)
+    (var template (object type "list" values
+      (array (object type "atom" value "=") symbol
+        (object type "list" values
+          (array (object type "atom" value "?:")
+          (object type "list" values
+            (array (object type "atom" value "||")
+              (object type "list" values (array (object type "atom" value "===")
+                                                symbol
+                                                (object type "atom" value "undefined")))
+              (object type "list" values (array (object type "atom" value "===")
+                                                symbol
+                                                (object type "atom" value "null"))))) value symbol)))))
+    (return template))
+  (var defaults (object type "list" values (array)))
+  (var raw (object type "list" values (array)))
+  (for (var i 0) (< i params.values.length) (++ i)
+    (var value (get params.values i))
+    (if (=== value.type "list")
+      (block
+        (var symbol (get value.values 0))
+        (var val (get value.values 1))
+        (defaults.values.push (default-template symbol val))
+        (raw.values.push symbol))
+      (raw.values.push value)))
+  (= params-len (object type "atom" value (String raw.values.length)))
+  (var rest (Array.prototype.slice.call arguments 2))
+  (var last (rest.pop))
+  (var body (object type "list" values rest))
+  (return `(lambda ,name (,@raw)
+    ,@defaults
+    (var rest (Array.prototype.slice.call arguments ,params-len))
+    ,@body
+    (return ,last)))))
+
 ; chain methods just like in JS!
 ; usage: (chain (Lazy (array 1 2 3 4 5 6 7)) (filter (lambda (x) (return (=== (% x 2) 0)))) (map (lambda (x) (return (* x 3)))) (reduce (lambda (x y) (return (+ x y)))))
 (macro chain (lambda ()
+  (var operator)
+  (var operands)
+  (function generate (prev next)
+    (if (=== next.type "list")
+      (block
+        (= operands (next.values.slice 0))
+        (= operator (operands.shift)))
+      (block
+        (= operator next)
+        (= operands undefined)))
+    (var template (object type "list" values (array (object type "atom" value ".") prev operator)))
+    (var result)
+    (if (=== operands undefined)
+      (= result template)
+      (block
+        (var envelope (object type "list" values (array template)))
+        (= envelope.values (envelope.values.concat operands))
+        (= result envelope)))
+    (return result))
   (var args (Array.prototype.slice.call arguments 0))
-  (var chained (array (args.shift)))
-  (function handle-non-atom (arg)
-    (chained.unshift (object atom "."))
-    (chained.push (arg.shift))
-    (var params (array chained))
-    (= params (params.concat arg))
-    (= chained (array params)))
-  (var is-atom)
-  (args.forEach (lambda (arg)
-    (= is-atom (!== arg.constructor Array))
-    (if is-atom (chained.push arg) (handle-non-atom arg))))
-  (if is-atom (chained.unshift (object atom ".")) (= chained (chained.pop)))
-  (return chained)))
+  (var result (args.shift))
+  (for (var i 0) (< i args.length) (++ i)
+    (= result (generate result (get args i))))
+  (return result)))
 
-; a guard against undefined errors (depends if a good idea or not)
-; ideally should use a frozen object or a fresh object as default, otherwise undefined behaviour is entirely possible
-; usage example:
-; (function create-identity () (block
-;  (var identity (lambda ()))
-;  (Object.freeze identity)
-;  (return identity)))
-; (var identity (create-identity))
-; (= (guard identity test a b c d e f) 777)
-; guards against undefined for the test.a.b.c.d.e.f path
-; Warning: it does not create a new path, for that use the build macro instead!
-(macro guard (lambda ()
- (var args (Array.prototype.slice.call arguments 0))
- (var deflt (args.shift))
- (var current (args.shift))
- (for (var i 0) (< i args.length) (++ i)
-  (= current
-   (array (object atom ".")
-   (array (object atom "||") current deflt)
-   (get args i))))
- (return current)))
-
-; guards for object members
-; usage (var x (dotguard a b c d e f))
-(macro dotguard (lambda ()
- (var args (Array.prototype.slice.call arguments 0))
- (var chain (array (object atom ".")))
- (var result (array (object atom "&&")))
- (for (var i 0) (< i args.length) (++ i)
-  (block
-   (= current (get args i))
-   (chain.push current)
-   (result.push (chain.slice))))
- (return result)))
-
-; object path builder
-; usage (should receive a defined unfrozen object):
-; (var item (object))
-; (build (object) item a b c d r 777)
-; (build (object) item a b c d e f g h 777)
-; (build (object) item a b d f k f g h 777)
-(macro build (lambda ()
- (var args (Array.prototype.slice.call arguments 0))
- (var factory (args.shift))
- (var assignment (args.pop))
- (var chain (array (object atom ".")))
- (var result (array (object atom "&&")))
- (for (var i 0) (< i args.length) (++ i)
-  (block
-   (= current (get args i))
-   (chain.push current)
-   (result.push
-    (array (object atom "=")
-    (chain.slice)
-    (array (object atom "||")
-     (chain.slice) (?: (=== i (- args.length 1)) assignment factory))))))
- (return result)))
+(macro make-lookup (lambda ()
+  (var args (Array.prototype.slice.call arguments 0))
+  (var result (object type "list" values (array)))
+  (for (var i 0) (< i args.length) (++ i)
+    (result.values.push (get args i))
+    (result.values.push (object type "atom" value "true")))
+  (return `(object ,@result))))
