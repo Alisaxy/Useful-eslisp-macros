@@ -1,9 +1,3 @@
-(macro ? (lambda (predicate left right)
- (return `(?:
-  ,predicate
-  ((lambda () (,@left)))
-  ((lambda () (,@right)))))))
-
 ; variadic lambda, usage: (vlambda test (x (y 10) z (i 999)) (console.log x y z i rest))
 ; supports default arguments
 ; slices the rest arguments into the rest array
@@ -80,3 +74,9 @@
     (result.values.push (get args i))
     (result.values.push (object type "atom" value "true")))
   (return `(object ,@result))))
+
+(macro ? (lambda (predicate left right)
+ (return `(?:
+  ,predicate
+  ((lambda () (,@left)))
+  ((lambda () (,@right)))))))
